@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"log"
-	"time"
 	"goelasticapp/dao"
 	"goelasticapp/utils"
+	"log"
+	"net/http"
+	"strconv"
+	"time"
 )
 
 func main() {
@@ -83,6 +86,10 @@ func main() {
 
     // Example 9: Get delayed flights
     fmt.Println("\n9. Getting delayed flights (>60 minutes):")
+
+	http.HandleFunc("/delayed-flights", DelayedFlightController)
+
+
     delayedResults, err := es.GetDelayedFlights(60)
     if err != nil {
         log.Printf("Error getting delayed flights: %v", err)
@@ -96,4 +103,50 @@ func main() {
         log.Printf("Error getting flights by multiple criteria: %v", err)
     }
     utils.PrintResults(multiResults)
+
+	log.Println("Server is running on port 8080...")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+// DelayedFlightController handles the delayed-flights endpoint
+func DelayedFlightController(w http.ResponseWriter, r *http.Request) {
+	es, err := dao.NewESClient()
+    if err != nil {
+        log.Fatalf("Failed to create Elasticsearch client: %v", err)
+    }
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	delayTime := r.URL.Query().Get("time")
+	if delayTime == "" {
+		http.Error(w, "Missing query parameter 'time'", http.StatusBadRequest)
+		return
+	}
+
+	// Call to GetDelayedFlights function, assume it returns a map and error
+	delayTimeInt, err := strconv.Atoi(delayTime)
+	if err != nil {
+		http.Error(w, "Invalid 'time' query parameter, must be an integer", http.StatusBadRequest)
+		return
+	}
+
+	delayedResults, err := es.GetDelayedFlights(delayTimeInt)
+	if err != nil {
+		log.Printf("Error getting delayed flights: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Set the content type to application/json
+	w.Header().Set("Content-Type", "application/json")
+
+	// Encode the delayedResults map into JSON and write to the response
+	err = json.NewEncoder(w).Encode(delayedResults)
+	if err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
