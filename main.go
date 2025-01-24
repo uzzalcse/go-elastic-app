@@ -125,7 +125,7 @@ func DelayedFlightController(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Call to GetDelayedFlights function, assume it returns a map and error
+	// Call to GetDelayedFlights function, it returns a map and error
 	delayTimeInt, err := strconv.Atoi(delayTime)
 	if err != nil {
 		http.Error(w, "Invalid 'time' query parameter, must be an integer", http.StatusBadRequest)
